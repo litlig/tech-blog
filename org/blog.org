@@ -1,0 +1,176 @@
+#+title: Strayforge — Blog source
+#+author: Strayforge
+#+startup: overview
+#+options: toc:nil
+
+# This single Org file holds many posts, one per top-level heading.
+# ox-hugo workflow:
+#   - Each heading with an :EXPORT_FILE_NAME: property becomes a post.
+#   - :EXPORT_HUGO_BUNDLE: makes it a Hugo page bundle (folder + index.md),
+#     matching the layout of content/posts/hello-world/. The default Hugo
+#     section is already "posts", so the bundle is just the slug (NOT
+#     "posts/slug") -> content/posts/<slug>/index.md.
+#
+# Export keys (point inside a heading):
+#   C-c C-e H H   export the current subtree (this one post)
+#   C-c C-e H A   export ALL subtrees in this file at once
+#
+# Anything below that isn't a post heading (like these comments) is ignored.
+
+* Train a diffusion model from scratch    :diffusion:flow_matching:@learning:
+:PROPERTIES:
+:EXPORT_HUGO_BUNDLE: diffusion-model-from-scratch
+:EXPORT_FILE_NAME: index
+:EXPORT_HUGO_DRAFT: true
+:EXPORT_HUGO_CUSTOM_FRONT_MATTER: :math true
+:EXPORT_DATE: 2026-06-28
+:EXPORT_HUGO_SUMMARY: Explaining and training a diffusion model from scratch using 2-D data.
+:END:
+
+# Loads KaTeX on this page (Blowfish only loads it when the katex shortcode is present).
+#+begin_export md
+{{< katex >}}
+#+end_export
+
+When I first read the DDPM paper, I was both fascinated and confused by the idea that, by adding and estimating the noise in an image sample, we can build a model and a sampling procedure that generates aesthetic images from noise. Isn't the noise just white noise sampled from a Gaussian? We already know its distribution, so why would we want to estimate it? And why add noise again when, during sampling, we are trying to remove it?
+
+If you share the same confusion, read on. We'll unpack how a diffusion model works and train one from scratch on a simple 2-D example — and by the end, we'll have answered all three questions.
+
+** Why use a diffusion process
+Most machine learning problems are essentially estimating a target distribution with a model (a neural network). Image classification estimates the distribution over labels given an image, $p(y \mid x)$. Next-token prediction in an LLM estimates the distribution over the next token given the preceding context, $p(x_t \mid x_{<t})$.
+
+For images, we can likewise say that all images are sampled from a distribution. A 256×256 image with 3 color channels is drawn from a distribution over a 3x256x256-dimensional space. We could model this distribution directly by training a network with a negative log-likelihood loss, but the normalizing constant over such a high-dimensional space is intractable, so the likelihood cannot be computed or optimized directly.
+
+Instead, researchers take another path: design a process that gradually converts noise into images. This sidesteps the intractable likelihood, because we only need to learn the local direction of the transformation at each step rather than the full distribution. Each step then becomes a simple regression target the network can learn directly.
+
+** Transform noise into an image
+If we already know the image we want to transform into, we can simply interpolate linearly between the noise and that image.
+
+# TODO: drop noise-to-image.png into this bundle folder (content/posts/diffusion-model-from-scratch/)
+#+caption: Linearly interpolating from a noise sample to a target image.
+[[file:noise-to-image.png]]
+
+Mathematically, we can frame it as $x_t = \beta_t x_0 + \alpha_t z$.
+
+$t$ respresents the time and is within [0,1], $t=0$ is the inital state which is pure noise and $t=1$ is the final state which is a image z. $\alpha_t$ and $\beta_t$ are schedules; for linear interpolation, $\beta_t = 1 - t$ and $\alpha_t = t$. We can define a vector field (also refered to as velocity field) as the direction and speed $x_t$ should move at a given time, which is the derivative of $x_t$ with respect to $t$. In this simple case, for a given $t$ the particle is just moving along the straight line toward $z$.
+
+What we actually want is for $x_t$ to approximate the image distribution at $t = 1$. If the image space contains only a dog image and a cat image, we want sampling to generate dog images half the time and cat images the other half. So instead of moving the particle toward one destination, the vector field $v_t$ should be the average of the velocities from all images, $\mathbb{E}_{z \sim p(z \mid x_t)}[v_t \mid z]$.
+
+Flow matching training:
+
+#+begin_src text
+for each training step:
+    z  ~ data distribution        # a real image
+    x0 ~ N(0, I)                  # pure noise
+    t  ~ Uniform(0, 1)
+    xt = (1 - t)·x0 + t·z         # a point on the noise→data path
+    v_target = z - x0             # conditional velocity
+    loss = || f(xt, t) - v_target ||²
+    backprop and update f
+#+end_src
+
+** flow matching, unpacked
+So what does the trained field actually do? In practice it moves each noise point toward the /nearest/ data point — even though the training data contains no such bias, since every $x_0$, target $z$, and time $t$ is drawn independently. The reason hides in the average: the estimated field at $(x_t, t)$ is the mean velocity over all $z$, weighted by $p(z \mid x_t)$.
+
+At $t = 0$, $x_t$ is pure noise and $p(z \mid x_t)$ is just the prior, so the field points toward the center of probability mass. As $t$ grows, $x_t$ begins to encode which $z$ it came from: $p(z \mid x_t)$ concentrates on the closer targets, and the particle is pulled toward them. The straight-line pull toward a single image is never trained in directly — it emerges in aggregate, from this shifting average.
+
+** diffusion — adding randomness to the otherwise deterministic path
+With a network trained using the steps above, we can estimate the vector field, and the sampling path becomes deterministic once the initial noise sample is drawn.
+
+#+begin_src text
+x  ~ N(0, I)
+dt = 1 / steps
+for step = 0 … steps-1:
+    t = step / steps
+    x = x + f(x, t)·dt            # follow the estimated velocity
+return x
+#+end_src
+
+There is little correction after the initial sample $x_0$. Because the whole trajectory is fixed by that first draw, any error in the estimated vector field accumulates along the path and pushes the sample off the data manifold, yielding a poor image. To add self-correction, noise is injected at every sampling step. The randomness lets the path re-explore and re-converge toward high-probability regions, so errors are corrected rather than compounded.
+
+# TODO: drop sde-vs-ode.png into this bundle folder (export it from sample_sde / sample_with_noise in the notebook)
+#+caption: Deterministic ODE sampling vs. stochastic SDE sampling with added noise; the SDE samples land more tightly on the data.
+[[file:sde-vs-ode.png]]
+
+** flow matching and score matching
+Let $p(x_t)$ be the probability density of $x_t$. The vector field is the instantaneous velocity of a particle, while the score is the gradient of the log-probability, $\nabla_{x_t} \log p(x_t)$. When the noise is Gaussian, i.e. $x_t = \beta_t x_0 + \alpha_t z$ with $x_0$ Gaussian, both the vector field and the score are linear combinations of $x_t$ and $z$, and are therefore interchangeable.
+
+** back to our three questions
+We opened with three confusions. Here are the answers.
+
+- /Isn't the noise just a Gaussian we already know?/ Yes — and that's the point. The Gaussian is only the starting line at $t = 0$; what we learn is not the noise but the velocity field that transports that known Gaussian into the unknown data distribution.
+- /Then why estimate anything?/ Because the hard part isn't the noise, it's the destination. The network learns, at every point and time, the average direction toward the data — in effect, where the probability mass lives.
+- /Why add noise back when sampling?/ A fully deterministic path locks in every error from the first draw. Re-injecting noise at each step lets the trajectory correct itself and re-converge onto the data manifold — a self-correcting path instead of a fixed one.
+
+
+
+* My First Org Post    :org_mode:setup:@meta:
+:PROPERTIES:
+:EXPORT_HUGO_BUNDLE: my-first-org-post
+:EXPORT_FILE_NAME: index
+:EXPORT_HUGO_DRAFT: true
+:EXPORT_HUGO_CUSTOM_FRONT_MATTER: :math true
+:EXPORT_DATE: 2026-06-26
+:EXPORT_HUGO_SUMMARY: Written in Emacs Org mode and exported to Hugo with ox-hugo.
+:END:
+
+This post is authored in =org/blog.org= and exported to
+=content/posts/my-first-org-post/index.md= by ox-hugo. Flip
+=:EXPORT_HUGO_DRAFT:= to =false= when it's ready to publish.
+
+** Math (KaTeX)
+I just want to add something here.
+The =:math true= custom front matter above turns on KaTeX for this page.
+Inline math like $e^{i\pi} + 1 = 0$ renders mid-sentence. Block math:
+
+\begin{equation}
+\hat{\beta} = (X^\top X)^{-1} X^\top y
+\end{equation}
+
+** Code
+
+Org source blocks become fenced, syntax-highlighted code blocks:
+
+#+begin_src python
+def fib(n: int) -> int:
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
+
+print([fib(i) for i in range(10)])
+#+end_src
+
+** Diagram (Mermaid)
+
+Use a =mermaid= source block; Hugo/Blowfish renders it client-side:
+
+#+begin_src mermaid
+flowchart LR
+    A[Write in Org] --> B[C-c C-e H H]
+    B --> C[ox-hugo writes index.md]
+    C --> D[Push to main]
+    D --> E[Cloudflare build]
+#+end_src
+
+** Chart (Blowfish shortcode)
+
+Hugo shortcodes must be passed through verbatim, so wrap them in an
+=md= export block — ox-hugo emits the contents as-is:
+
+#+begin_export md
+{{< chart >}}
+type: 'line',
+data: {
+  labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+  datasets: [{
+    label: 'Commits',
+    data: [12, 19, 7, 22, 30],
+    borderColor: '#3b82f6',
+    tension: 0.3
+  }]
+}
+{{< /chart >}}
+#+end_export
+
+That's the full toolkit — duplicate this heading to start a new post.

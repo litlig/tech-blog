@@ -2,7 +2,7 @@ disabled = false
 locale = "en"
 label = "English"
 weight = 1
-title = "Strayforge"
+title = "StrayForge"
 
 [params]
   displayName = "EN"
@@ -16,14 +16,7 @@ title = "Strayforge"
 
 [params.author]
   name = "Strayforge"
-  headline = "Engineering notes & experiments"
-  bio = "Writing about code, math, and side projects."
-  links = [
-    # Uncomment and fill in your real handles:
-    # { github = "https://github.com/litlig" },
-    # { email = "mailto:you@example.com" },
-    { link = "https://strayforge.com/" },
-  ]
+  headline = "Reading, Tinkering, Writing."
 
 # -- Reference: all supported author social links (kept commented) --
 # [params._author_link_reference]
