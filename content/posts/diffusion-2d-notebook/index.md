@@ -1,7 +1,7 @@
 ---
 title: "Diffusion model from scratch with 2-D examples"
 date: 2026-06-29
-draft: true
+draft: false
 categories: ["learning"]
 tags: ["diffusion", "flow-matching", "notebook"]
 summary: "A trimmed, annotated companion to the 2-D diffusion notebook — with an ODE-vs-SDE sampling comparison."
