@@ -25,6 +25,12 @@
   pageRef = "tags"
   weight = 30
 
+[[main]]
+  name = "RSS"
+  url = "/index.xml"
+  weight = 40
+  pre = "rss"
+
 #[[main]]
 #  name = "example sub-menu 1"
 #  parent = "Parent"
