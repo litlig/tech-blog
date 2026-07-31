@@ -1,9 +1,9 @@
 ---
-title: "Guided diffusion from scratch with 2-D examples"
+title: "Guided diffusion explained with 2-D examples"
 date: 2026-07-02
 draft: false
-categories: ["learning"]
-tags: ["diffusion", "flow-matching", "guidance", "notebook"]
+categories: ["learning", "diffusion"]
+tags: ["diffusion", "flow-matching", "guidance", "cfg", "classifier free guidance"]
 summary: "A follow-up to the 2-D diffusion notebook: steering generation with labels, from vanilla conditioning to classifier-free guidance."
 ---
 
