@@ -9,14 +9,43 @@ Turn a Jupyter notebook into a page-bundle post under `content/posts/<slug>/inde
 following this blog's Blowfish conventions. Do it with the Python **standard library only** —
 no Jupyter, no `pip install`, no PIL.
 
-## Editorial rules (do not violate)
+## Editorial doctrine: you are the mechanic, not the author
 
-- **Follow the notebook's prose closely.** Fix only grammar, typos, and descriptions that are
-  *logically inaccurate*. Do not rewrite the author's voice or restructure their argument.
-- **Add almost nothing of your own** — at most a sentence or two, and only where a figure or
-  transition genuinely needs a caption. When in doubt, add nothing.
+The whole value of these posts is that a **human did the work and is writing about it in their own
+voice**. Readers now reflexively detect and dismiss AI-shaped prose, and they are right to — smooth,
+templated writing reads as slop even when the underlying work is real and original. Your job is to
+*transport* the author's notebook prose into the blog and fix what is broken. It is **not** to write,
+improve, polish, or "make it flow." The author's words stay the author's words.
+
+**Rules (do not violate):**
+
+- **Preserve the author's voice verbatim.** Carry sentences across as written. Keep their phrasing,
+  rhythm, informality, and idiosyncrasies. A slightly awkward-but-clear human sentence is *better*
+  than a smooth one you rewrote — the awkwardness is the fingerprint that proves a person wrote it.
+- **Narrow the fix scope to real defects only.** Change a word *only* when it is (a) an outright
+  spelling/grammar error, or (b) factually or logically wrong. If a sentence is clunky, casual, or
+  imperfect but clear and correct, **leave it exactly as written.** "Could be smoother" is never a
+  reason to edit. When unsure, don't touch it.
+- **Add nothing in your own voice.** No invented captions, no connective transitions, no summarizing
+  "takeaways," no framing sentences, no closing questions. If a figure genuinely needs a caption, use
+  the author's own words from the notebook; if there are none, write a flat factual alt text (e.g.
+  "training loss vs. steps"), not a crafted sentence.
+- **Never impose AI-tell structure.** Do not add: the "I built/implemented X from scratch to see what
+  it actually does" framing, tidy rule-of-three lists, balanced em-dash clauses, bulleted "key
+  takeaways," or rhetorical engagement-bait questions at the end. If the author didn't write it,
+  it doesn't go in.
 - **Skip large code blocks** (plotting, training loops, boilerplate). Keep only the few *core,
-  interesting* snippets that carry the idea — trim them to the essential lines.
+  interesting* snippets that carry the idea — trim them to the essential lines. (This is the one
+  place you actively cut; everything else is preserve-in-place.)
+
+**Litmus test before you write a line:** would the author read this sentence and recognize it as their
+own? If you generated it and it isn't in the notebook, delete it unless it is a pure mechanical
+necessity. When the notebook prose is thin, the post is allowed to be short — a short post in the
+author's voice beats a padded one in yours.
+
+Front matter (`summary`, `tags`) may be plainly functional and keyword-bearing; that's metadata, not
+voice. The **title and body prose must be the author's.** If the author wants a different title,
+that's their call, not yours to invent.
 
 ## Steps
 
@@ -88,7 +117,8 @@ Then the body, in this order:
    > <a href="<colab-url>" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
    ```
 3. If it's a follow-up to another post, cross-link with `{{< ref "posts/<other-slug>" >}}`.
-4. The prose + kept code snippets + figures (`![alt](figure.png)`).
+4. The prose (the author's own, carried over per the editorial doctrine above) + kept code
+   snippets + figures (`![alt](figure.png)`).
 
 **Math conversion (important):** convert notebook `$...$` / `$$...$$` to Blowfish's delimiters —
 inline `\(...\)`, display `\[...\]`. Do **not** rely on single `$...$` inline math.
@@ -108,5 +138,8 @@ Note: local builds show `localhost:1313` URLs; production (`build.sh`) uses the 
 ## Reference
 
 - Config lives in `config/_default/` (Blowfish TOML). Posts are page bundles under `content/posts/`.
-- The two existing examples to match for tone/structure: `content/posts/diffusion-2d-notebook/`
-  and `content/posts/guided-2d-diffusion/`.
+- Match the existing posts (`content/posts/diffusion-2d-notebook/`, `content/posts/guided-2d-diffusion/`)
+  for **mechanics only** — front matter shape, `{{< katex >}}`, the trimmed-code blockquote, Colab
+  badge, figure wiring, cross-links. Do **not** copy their prose voice: those were produced by the
+  earlier "polish it" version of this skill and read as AI-generated. The doctrine above supersedes
+  their tone.
