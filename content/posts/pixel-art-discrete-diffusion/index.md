@@ -16,7 +16,7 @@ summary: "Training a small transformer to generate 16x16 pixel art characters by
 >
 > <a href="https://colab.research.google.com/github/litlig/notebooks/blob/main/pixel_art_discrete_diffusion.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 
-![unmasking process over sampling steps](unmasking-process.gif)
+![unmasking process over sampling steps, confidence-based sampler](sampling-confidence-annealed.gif)
 
 Diffusion models are widely used to generate images. Pixel art, with limited data points and a categorical palette, can be a good fit for discrete diffusion.
 
@@ -63,6 +63,12 @@ loss = F.cross_entropy(z.view(-1, n_vocab-1)[masked_pos.view(-1)], images.view(-
 
 ### Sampling
 
+Sampling starts from a fully masked image and reverses the process: at each step the model predicts the ending color for every masked pixel, and some of those pixels get un-masked. What differs between the approaches below is only how the pixels to un-mask are picked at each step. All of them un-mask the same number of pixels overall, 1000 steps, 64 samples.
+
+#### Un-masking each pixel independently
+
+This follows the training process literally. Each still-masked pixel flips on its own with the probability given by the denoise schedule, and gets the color sampled from the model's prediction for that position.
+
 ```python
 x = p_mask * torch.ones((n_sample, img_size, img_size), device=device).long()
 alpha_prev = 0
@@ -76,3 +82,44 @@ for step in range(steps):
   x = sample.view(n_sample, img_size, img_size) * kappa + x * (1-kappa)
   alpha_prev = alpha_curr
 ```
+
+![unmasking process, independent per-pixel sampling](sampling-independent.gif)
+
+The character shape comes out, but the colors are speckled. The pixels un-masked in the same step are drawn independently from their own marginals, so they don't agree with each other.
+
+#### Confidence-based, most-sure positions first
+
+Instead of letting each pixel decide on its own, sample a color for every masked position, then only commit the ones the model is most sure about, i.e. the highest probability of the sampled color. The number of positions to commit at each step, `k`, comes from the same schedule.
+
+```python
+still_masked = (x.view(n_sample, -1) == p_mask)
+probs = F.softmax(model(x.view(n_sample, -1)), dim=-1)
+sample = torch.multinomial(probs.view(-1, probs.shape[-1]), num_samples=1).view(n_sample, n_seq)
+confidence = probs.gather(-1, sample.unsqueeze(-1)).squeeze(-1)
+
+temperature = temperature_max * (1 - step / steps)  # anneal to 0 by the last step
+noisy_confidence = torch.log(confidence.clamp(min=1e-20)) + temperature * sample_gumbel(confidence.shape, device)
+noisy_confidence = noisy_confidence.masked_fill(~still_masked, float('-inf'))
+
+target_after = round(((step + 1) / steps) * n_seq)
+k = max(target_after - revealed_so_far, 0)
+reveal = torch.zeros_like(still_masked)
+if k > 0:
+  reveal.scatter_(1, torch.topk(noisy_confidence, k, dim=1).indices, True)
+x = torch.where(reveal, sample, x.view(n_sample, -1)).view(n_sample, img_size, img_size)
+revealed_so_far = target_after
+```
+
+With `temperature_max = 0` the ranking is purely the confidence, so the committed pixels are always the safest ones.
+
+![unmasking process, confidence-based sampling with temperature 0](sampling-confidence.gif)
+
+Much cleaner sprites, but all 64 samples end up nearly the same character. Always taking the most confident positions pushes every sample towards the same high probability mode.
+
+#### Confidence-based with annealed noise
+
+To get the diversity back, the ranking is perturbed with Gumbel noise scaled by a temperature that anneals linearly to 0. Early steps pick positions almost at random, later steps go back to most-sure-first.
+
+![unmasking process, confidence-based sampling with annealed temperature](sampling-confidence-annealed.gif)
+
+The samples are different from each other again, and still hold together better than the independent version.
