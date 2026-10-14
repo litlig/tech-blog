@@ -1,0 +1,87 @@
+/* Homepage intro: logo beside headline, warm glow, accent rule. */
+.sf-intro {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin: 1rem 0 2.5rem;
+  padding: 2rem;
+  border: 1px solid rgba(var(--color-primary-500), 0.18);
+  border-radius: 1rem;
+  background:
+    radial-gradient(120% 140% at 0% 100%, rgba(var(--color-primary-500), 0.14), transparent 55%),
+    rgba(var(--color-neutral-100), 0.5);
+  overflow: hidden;
+}
+
+.dark .sf-intro {
+  border-color: rgba(var(--color-primary-400), 0.2);
+  background:
+    radial-gradient(120% 140% at 0% 100%, rgba(var(--color-primary-600), 0.22), transparent 55%),
+    rgba(var(--color-neutral-800), 0.5);
+}
+
+.sf-intro__logo {
+  flex: none;
+  width: 9rem;
+  height: 9rem;
+  border-radius: 9999px;
+  box-shadow:
+    0 0 0 4px rgba(var(--color-primary-500), 0.15),
+    0 10px 30px -8px rgba(var(--color-primary-700), 0.45);
+}
+
+.sf-intro__text {
+  min-width: 0;
+}
+
+.sf-intro__headline {
+  margin: 0;
+  font-size: clamp(1.9rem, 4.5vw, 2.75rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: rgb(var(--color-neutral-800));
+}
+
+.dark .sf-intro__headline {
+  color: rgb(var(--color-neutral-100));
+}
+
+.sf-intro__headline::after {
+  content: "";
+  display: block;
+  width: 3.5rem;
+  height: 4px;
+  margin-top: 0.9rem;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgb(var(--color-primary-500)), rgb(var(--color-secondary-500)));
+}
+
+.sf-intro__tagline {
+  margin: 0.9rem 0 0;
+  font-size: 1.125rem;
+  color: rgb(var(--color-neutral-500));
+}
+
+.dark .sf-intro__tagline {
+  color: rgb(var(--color-neutral-400));
+}
+
+.sf-intro__links:empty {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .sf-intro {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+    padding: 1.5rem;
+  }
+
+  .sf-intro__logo {
+    width: 6.5rem;
+    height: 6.5rem;
+  }
+}

@@ -1,4 +1,4 @@
 ---
 title: "Strayforge"
-description: "Notes on engineering, math, and building things."
+description: "Side quests in machine learning — derived, coded and plotted from first principles."
 ---

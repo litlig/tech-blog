@@ -11,12 +11,13 @@ title = "StrayForge"
   dateFormat = "2 January 2006"
   # logo = "img/logo.png"
   # secondaryLogo = "img/secondary-logo.png"
-  description = "Notes on engineering, math, and building things."
+  description = "Side quests in machine learning — derived, coded and plotted from first principles."
   # copyright = "Copy, _right?_ :thinking_face:"
 
 [params.author]
   name = "Strayforge"
-  headline = "Reading, Tinkering, Writing."
+  image = "img/avatar.png"
+  headline = "Wandering off the main path."
 
 # -- Reference: all supported author social links (kept commented) --
 # [params._author_link_reference]
