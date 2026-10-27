@@ -118,3 +118,5 @@ Both samplers use the same field — deterministic ODE (\(\sigma=0\)) vs stochas
 | 0.5 | 0.0529 → **0.0509** | 0.0333 → **0.0388** |
 
 The trends are opposite and monotonic. On the smooth, unimodal **ellipse** the ODE is already near-optimal, so noise only knocks samples off the curve. On the **bimodal circles** the marginal path curves between modes and a coarse deterministic step cuts the corner; the SDE's score-correction pulls samples back, improving with σ. So noise buys error-correction on hard, multimodal targets — and costs precision on easy ones.
+
+Next: [classifier-free guidance explained with the same 2-D setup]({{< ref "posts/guided-2d-diffusion" >}}), steering generation toward a chosen label.

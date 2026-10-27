@@ -1,10 +1,12 @@
 ---
-title: "Guided diffusion explained with 2-D examples"
+title: "Classifier-Free Guidance Explained with a 2-D Diffusion Example"
+slug: "classifier-free-guidance-explained"
+aliases: ["/posts/guided-2d-diffusion/"]
 date: 2026-07-02
 draft: false
 categories: ["learning", "diffusion"]
-tags: ["diffusion", "flow-matching", "guidance", "cfg", "classifier free guidance"]
-summary: "A follow-up to the 2-D diffusion notebook: steering generation with labels, from vanilla conditioning to classifier-free guidance."
+tags: ["diffusion", "flow-matching", "guidance", "cfg", "classifier-free guidance"]
+summary: "How classifier-free guidance works: derived from Bayes' rule, implemented in a few lines of PyTorch, with label dropout during training and what the guidance scale w does to samples."
 ---
 
 {{< katex >}}
@@ -14,7 +16,7 @@ summary: "A follow-up to the 2-D diffusion notebook: steering generation with la
 >
 > <a href="https://colab.research.google.com/github/litlig/notebooks/blob/main/guided_2d_diffusion.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 
-## Problem framing
+## What is guided diffusion?
 
 In an unguided diffusion model, we sample a noise image and follow the diffusion process to arrive at an image. Often, though, we want to prompt the model to generate a *specific* kind of image; such generation is called **guided generation**.
 
@@ -72,13 +74,19 @@ Taking the log of both sides and then the gradient with respect to \(x\) (the \(
 
 \[v_t(x\,|\,y) = v_t(x) + \alpha_t \nabla \log p_t(y\,|\,x)\]
 
-The extra term \(\nabla \log p_t(y\,|\,x)\) is what contributes the guidance. A natural way to make generation follow the guidance more strongly is to scale this term up. Estimating \(p_t(y\,|\,x)\) is essentially a classification problem — given a noisy sample \(x\), predict its label — so this approach is called **classifier guidance**: it requires training one network for the vector field and a separate classifier.
+The extra term \(\nabla \log p_t(y\,|\,x)\) is what contributes the guidance. A natural way to make generation follow the guidance more strongly is to scale this term up. Estimating \(p_t(y\,|\,x)\) is essentially a classification problem — given a noisy sample \(x\), predict its label — so this approach is called **classifier guidance** ([Dhariwal & Nichol, 2021](https://arxiv.org/abs/2105.05233)): it requires training one network for the vector field and a separate classifier.
 
-A more elegant approach eliminates the need for a separate classifier. Given the guided vector field \(v_t(x\,|\,y)\) and the unguided vector field \(v_t(x)\), the influence of guidance is \(v_t(x\,|\,y) - v_t(x)\). We scale it up by a weight \(w > 1\) and use the following in forward sampling:
+A more elegant approach, **classifier-free guidance** ([Ho & Salimans, 2022](https://arxiv.org/abs/2207.12598)), eliminates the need for a separate classifier. Given the guided vector field \(v_t(x\,|\,y)\) and the unguided vector field \(v_t(x)\), the influence of guidance is \(v_t(x\,|\,y) - v_t(x)\). We scale it up by a weight \(w > 1\) and use the following in forward sampling:
 
 \[(1-w)\, v_t(x) + w\, v_t(x\,|\,y)\]
 
-To get both \(v_t(x)\) and \(v_t(x\,|\,y)\) from a single network, we treat the unguided vector field as a guided one with a special *null* prompt, which we inject at random into a fraction of the training samples:
+\(w\) is called the **guidance scale**. Rearranged, this is the form you will usually see in papers and code, written for a noise-prediction model \(\epsilon_\theta\):
+
+\[\tilde{\epsilon} = \epsilon_\theta(x_t, \varnothing) + w\,\big(\epsilon_\theta(x_t, y) - \epsilon_\theta(x_t, \varnothing)\big)\]
+
+It is the same combination: the unconditional prediction plus \(w\) times the guidance direction.
+
+To get both \(v_t(x)\) and \(v_t(x\,|\,y)\) from a single network, we treat the unguided vector field as a guided one with a special *null* prompt, which we inject at random into a fraction of the training samples. This trick is usually called **label dropout** (or conditioning dropout); dropping 10–20% of labels is typical, so the same network learns both fields:
 
 ```python
 def get_batch(dist_fn, batch_size, inject_rate=0.1):
@@ -118,3 +126,10 @@ def cfg_sample(model, nsample, steps=100, guide_label=0, weight=2.0):
 Sweeping the guidance weight shows its effect directly. At \(w=1\) we recover plain conditional sampling. As \(w\) grows, the guidance term is amplified: samples cling more tightly to their target cluster and drift further from the opposite one — the samples follow the prompt more faithfully, at the cost of some diversity as they concentrate.
 
 ![Classifier-free guidance across weights w = 1, 2, 4: larger w pulls samples more tightly onto the target cluster](cfg-weights.png)
+
+In image models the guidance scale is usually set well above 1; Stable Diffusion defaults to 7.5. Push it too high and samples become oversaturated and repetitive, the same fidelity-versus-diversity trade-off visible in the 2-D plot.
+
+## Classifier guidance vs classifier-free guidance
+
+- **Classifier guidance** trains a separate classifier on noisy samples \(x_t\) at every noise level and adds its gradient during sampling. It can steer an existing unconditional model, but the classifier has to cope with heavy noise, and following its gradient risks pushing samples toward whatever fools the classifier rather than toward better samples.
+- **Classifier-free guidance** needs only one network trained with label dropout, at the cost of two forward passes per sampling step. It works with any conditioning that can be dropped (class labels, text prompts, images), which is why text-to-image models like Stable Diffusion use it.

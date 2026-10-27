@@ -1,10 +1,12 @@
 ---
-title: "Batch, layer, and group norm, side by side on MNIST"
+title: "Batch Norm vs Layer Norm vs Group Norm, Compared on MNIST"
+slug: "batch-norm-vs-layer-norm-vs-group-norm"
+aliases: ["/posts/normalization-notebook/"]
 date: 2026-07-31
 draft: false
 categories: ["learning", "normalization"]
-tags: ["normalization", "batch norm", "layer norm", "group norm"]
-summary: "A simple MLP on MNIST to see how batch, layer, and group normalization differ in training speed, accuracy, and neuron activations."
+tags: ["normalization", "batch norm", "layer norm", "group norm", "pytorch"]
+summary: "BatchNorm, LayerNorm and GroupNorm implemented from scratch in PyTorch and compared on MNIST: what each normalizes over, when to use which, and how they affect training and dead neurons."
 ---
 
 {{< katex >}}
@@ -18,7 +20,19 @@ Normalization is a ubiquitous part of modern transformer architectures. I freque
 
 Here I wrote a from-scratch implementation of the three — batch norm, layer norm, and group norm — applied them to a simple MLP on the MNIST dataset, and discuss the underlying assumptions as I understand them.
 
-## Set up
+## Batch norm vs layer norm vs group norm at a glance
+
+| | Batch norm | Layer norm | Group norm |
+|---|---|---|---|
+| Normalizes over | each feature, across the samples in a mini-batch | all features of one sample | each group of features within one sample |
+| Depends on batch size | Yes: statistics get noisy with small batches | No | No |
+| Training vs. inference | Uses running mean/variance at inference | Same computation | Same computation |
+| Learnable parameters | \(\gamma, \beta\) per feature | \(\gamma, \beta\) per feature | \(\gamma, \beta\) per feature |
+| Typical use | CNNs trained with large batches | Transformers, RNNs | Vision models with small batches (detection, segmentation) |
+
+The rest of the post builds each one from scratch and explains where these differences come from.
+
+## Setup: an MLP on MNIST
 
 We use a basic fully-connected neural network to classify digits from MNIST:
 
@@ -89,6 +103,8 @@ class BatchNormMLP(nn.Module):
 
 ## Layer normalization
 
+[Reference paper](https://arxiv.org/abs/1607.06450)
+
 Batch norm normalizes across batch samples for each neuron in a layer; layer norm instead treats each sample individually and normalizes across all neurons for that sample:
 
 \[\widehat{x_i} = \frac{x_i - \mu_i}{\sigma_i}\]
@@ -117,6 +133,8 @@ class LayerNormMLP(nn.Module):
 
 ## Group normalization
 
+[Reference paper](https://arxiv.org/abs/1803.08494)
+
 Group norm takes a step further from layer norm: instead of normalizing across all features in a layer, it splits the features into groups and normalizes each group by its own mean and standard deviation. The idea is that different groups can have genuinely different statistics, so they should not be pooled together when computing the mean and variance.
 
 Group norm further reduces the degrees of freedom to \(d - 2g\), where \(d\) is the total feature dimension and \(g\) is the number of groups, in exchange for not letting heterogeneous groups pollute each other's statistics. It was introduced for vision models with small batch sizes: channel groups (e.g. from grouped convolutions, or filters tuned to different frequencies or orientations) can have genuinely different natural scales, and pooling all of them into one LayerNorm-style mean/variance would wash out that structure.
@@ -134,7 +152,7 @@ class GroupNormMLP(nn.Module):
     return self.activation(x)
 ```
 
-## Results across all models
+## Results: BatchNorm vs LayerNorm vs GroupNorm
 
 We compare the four models — one vanilla MLP and three MLPs with different normalizations — on training speed, test-set accuracy, and neuron activation.
 
@@ -160,3 +178,19 @@ All three normalized models train faster and reach better accuracy than the vani
 | GroupNorm MLP | 96.33 |
 
 There is no significant difference among the three normalizations here because the example is simple enough that all of them perform well. There is no convolutional layer for feature extraction, so group norm has no advantage over layer norm in this setting.
+
+## When to use which
+
+- **Batch norm** when batches are large and fixed-size, as in classic CNN image classification. It is the only one of the three that uses information across samples, and the noise in its batch statistics acts as a mild regularizer. Avoid it with small or variable batches, and remember that training and inference compute different things.
+- **Layer norm** when each sample has to be normalized on its own: sequence models, small per-device batches, or inference on one example at a time. It is the default in transformers.
+- **Group norm** when features come in groups with different natural scales (typically convolutional channels) and the batch is too small for batch norm, e.g. detection and segmentation with a few high-resolution images per GPU. With a single group it reduces to layer norm; with one channel per group it becomes instance norm.
+
+## Why do transformers use layer norm instead of batch norm?
+
+Mostly because batch statistics are a poor fit for sequences:
+
+1. **Variable lengths and padding.** Sequences in a batch have different lengths, so batch statistics would mix real tokens with padding and change with how each batch happens to be composed.
+2. **Small effective batches.** Large models often fit only a few sequences per device, which makes batch statistics noisy, the same weakness noted above.
+3. **Generation one token at a time.** Autoregressive inference often runs with a batch size of 1, where batch norm has to fall back on running averages that may not match what it saw in training. Layer norm computes exactly the same thing in training and inference.
+
+Many recent LLMs go one step further and use RMSNorm, which drops the mean-centering and only rescales each sample by its root mean square.
