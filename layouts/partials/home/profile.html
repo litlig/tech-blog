@@ -1,41 +1,117 @@
 {{ $disableImageOptimization := .Site.Params.disableImageOptimization | default false }}
-<article class="sf-intro">
-  {{ with .Site.Params.Author.image }}
-    {{ $authorImage := "" }}
-    {{ if or (strings.HasPrefix . "http:") (strings.HasPrefix . "https:") }}
-      {{ $authorImage = resources.GetRemote . }}
-    {{ else }}
-      {{ $authorImage = resources.Get . }}
-    {{ end }}
-    {{ if $authorImage }}
-      {{ $final := $authorImage }}
-      {{ if not (or $disableImageOptimization (eq $authorImage.MediaType.SubType "svg")) }}
-        {{ $final = $authorImage.Fill (print "288x288 q" ( $.Site.Params.Author.imagequality | default "96" )) }}
-      {{ end }}
-      <img
-        class="sf-intro__logo"
-        width="144"
-        height="144"
-        alt="{{ $.Site.Params.Author.name | default `Author` }}"
-        src="{{ $final.RelPermalink }}">
-    {{ end }}
-  {{ end }}
-  <div class="sf-intro__text">
-    {{/* Author name intentionally omitted on the homepage — only the headline below is shown. */}}
-    {{ with .Site.Params.Author.headline }}
-      <h1 class="sf-intro__headline">{{ . | markdownify }}</h1>
-    {{ end }}
-    {{ with .Description }}
-      <p class="sf-intro__tagline">{{ . }}</p>
-    {{ end }}
-    <div class="sf-intro__links text-2xl">
-      {{ partialCached "author-links.html" . }}
+{{ $articles := where .Site.RegularPages "Type" "in" .Site.Params.mainSections }}
+{{ if not $articles }}{{ $articles = where .Site.RegularPages "Section" "posts" }}{{ end }}
+{{ $articles = first (.Site.Params.homepage.showRecentItems | default 5) ($articles.ByDate.Reverse) }}
+{{ $math := dict "output" "html" }}
+{{ $display := dict "output" "html" "displayMode" true }}
+{{ $heroIconURL := "" }}
+{{ with resources.Get "img/hero/icon-mark.png" }}
+  {{ $icon := . }}
+  {{ if not $disableImageOptimization }}{{ $icon = .Resize "400x webp q90" }}{{ end }}
+  {{ $heroIconURL = $icon.RelPermalink }}
+{{ end }}
+
+<section class="sf-hero" aria-labelledby="sf-home-title">
+  <div class="sf-hero__art sf-hero__art--left" aria-hidden="true">
+    <div class="sf-art">
+      <div class="sf-math sf-math--loss">{{ transform.ToMath `\mathcal{L}(\theta) = \frac{1}{N}\sum_{i=1}^{N} \ell\big(f_\theta(x_i), y_i\big)` $display }}</div>
+      <div class="sf-math sf-math--grad">{{ transform.ToMath `\nabla_\theta\, \mathcal{L}(\theta)` $math }}</div>
+      <div class="sf-math sf-math--step">{{ transform.ToMath `\theta_{t+1} = \theta_t - \eta \nabla_\theta\, \mathcal{L}(\theta)` $math }}</div>
+      {{ (resources.Get "img/hero/loss-surface.svg").Content | safeHTML }}
+      <div class="sf-math sf-math--axis-z">{{ transform.ToMath `\mathcal{L}(\theta)` $math }}</div>
+      <div class="sf-math sf-math--axis-2">{{ transform.ToMath `\theta_2` $math }}</div>
+      <div class="sf-math sf-math--axis-1">{{ transform.ToMath `\theta_1` $math }}</div>
     </div>
   </div>
-</article>
+
+  <div class="sf-hero__copy">
+    <div class="sf-seal" aria-hidden="true">
+      <svg class="sf-seal__ring" viewBox="0 0 240 240">
+        <path class="sf-seal__main" d="M52.5 192.4A99 99 0 1 1 187.5 192.4"/>
+        <path class="sf-seal__echo" d="M45 180A102 102 0 1 1 210 170"/>
+        <path class="sf-seal__dash" d="M18 150A108 108 0 0 1 40 46M200 38A110 110 0 0 1 226 150"/>
+        <path class="sf-seal__dash sf-seal__dash--far" d="M8 118A114 114 0 0 1 16 82M231 96A114 114 0 0 1 233 140"/>
+      </svg>
+      {{ with $heroIconURL }}<img class="sf-seal__icon" width="176" height="176" src="{{ . }}" alt="">{{ end }}
+    </div>
+    <h1 id="sf-home-title">Wandering off the <em>main path</em>.</h1>
+    <p class="sf-hero__dek">{{ .Description }}</p>
+    <div class="sf-hero__actions">
+      <a class="sf-button sf-button--primary" href="{{ `/posts/` | relLangURL }}">Explore the notebooks <span aria-hidden="true">→</span></a>
+      <a class="sf-button sf-button--secondary" href="{{ `/tags/` | relLangURL }}">Browse topics</a>
+    </div>
+  </div>
+
+  <div class="sf-hero__art sf-hero__art--right" aria-hidden="true">
+    <div class="sf-art">
+      <div class="sf-math sf-math--p0">{{ transform.ToMath `p(x_0)` $math }}</div>
+      <svg class="sf-reverse-arrow" viewBox="0 0 150 12"><path d="M3 6h146M11 1.5 3 6l8 4.5"/></svg>
+      <div class="sf-math sf-math--pT">{{ transform.ToMath `p(x_T)` $math }}</div>
+      <div class="sf-diffusion">
+        {{ range $i, $_ := seq 0 3 }}
+          {{ if $i }}<span class="sf-diffusion__arrow">→</span>{{ end }}
+          {{ with resources.Get (printf "img/hero/diffusion-%d.png" $i) }}<img src="{{ .RelPermalink }}" width="81" height="81" alt="">{{ end }}
+        {{ end }}
+      </div>
+      <div class="sf-math sf-math--q">{{ transform.ToMath `q(x_{t-1} \,|\, x_t)` $math }}</div>
+      <div class="sf-math sf-math--objective">{{ transform.ToMath `\mathcal{L} = \mathbb{E}_{t, x_0, \varepsilon}\Big[ \big\| \varepsilon - \varepsilon_\theta(x_t, t) \big\|^2 \Big]` $math }}</div>
+      {{ (resources.Get "img/hero/loss-curve.svg").Content | safeHTML }}
+    </div>
+  </div>
+</section>
+
 {{ with .Content }}
   <section class="prose dark:prose-invert w-full">{{ . }}</section>
 {{ end }}
-<section>
-  {{ partial "recent-articles/main.html" . }}
-</section>
+
+{{ if $articles }}
+  <section class="sf-notes" aria-labelledby="sf-latest-title">
+    <header class="sf-section-head">
+      <div>
+        <p class="sf-kicker">Experiments · derivations · visualizations</p>
+        <h2 id="sf-latest-title">Latest field notes</h2>
+      </div>
+      <a href="{{ `/posts/` | relLangURL }}">View all posts <span aria-hidden="true">→</span></a>
+    </header>
+
+    {{ range $index, $page := $articles }}
+      {{ $featured := "" }}
+      {{ $images := $page.Resources.ByType "image" }}
+      {{ with ($page.Params.card_image | default $page.Params.featureimage) }}
+        {{ $featured = $images.GetMatch . }}
+      {{ end }}
+      {{ range slice "*feature*" "*cover*" "*thumbnail*" }}
+        {{ if not $featured }}{{ $featured = $images.GetMatch . }}{{ end }}
+      {{ end }}
+      {{ $featuredURL := "" }}
+      {{ with $featured }}
+        {{ $featuredURL = .RelPermalink }}
+        {{ if not (or $disableImageOptimization (eq .MediaType.SubType "svg")) }}
+          {{ if eq $index 0 }}{{ $featuredURL = (.Fill "900x540 q86").RelPermalink }}{{ else }}{{ $featuredURL = (.Fill "420x260 q84").RelPermalink }}{{ end }}
+        {{ end }}
+      {{ end }}
+
+      <article class="sf-note {{ if eq $index 0 }}sf-note--featured{{ end }}">
+        {{ if $featuredURL }}
+          <a class="sf-note__image" href="{{ $page.RelPermalink }}" tabindex="-1" aria-hidden="true">
+            <img src="{{ $featuredURL }}" alt="" loading="{{ if eq $index 0 }}eager{{ else }}lazy{{ end }}" decoding="async">
+          </a>
+        {{ else }}
+          {{ partial "home/note-fallback.html" (dict "page" $page "index" $index) }}
+        {{ end }}
+        <div class="sf-note__body">
+          <div class="sf-note__meta">
+            <time datetime="{{ $page.Date.Format `2006-01-02` }}">{{ $page.Date.Format "02 Jan 2006" }}</time>
+            {{ with $page.Params.categories }}<span>{{ index . 0 }}</span>{{ end }}
+          </div>
+          <h3><a href="{{ $page.RelPermalink }}">{{ $page.Title | emojify }}</a></h3>
+          <p>{{ $page.Summary | plainify }}</p>
+          <footer>
+            {{ range first 2 ($page.GetTerms "tags") }}<a href="{{ .RelPermalink }}">{{ .LinkTitle }}</a>{{ end }}
+            <span>{{ $page.ReadingTime }} min read</span>
+          </footer>
+        </div>
+      </article>
+    {{ end }}
+  </section>
+{{ end }}

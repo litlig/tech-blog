@@ -1,0 +1,60 @@
+{{ $page := .page }}
+{{ $index := .index }}
+{{ $tags := $page.Params.tags | default (slice) }}
+{{ $categories := $page.Params.categories | default (slice) }}
+{{ $motif := $page.Params.card_motif | default "" }}
+
+{{ if not $motif }}
+  {{ if and (in $tags "discrete-diffusion") (or (in $tags "transformer") (in $tags "nlp")) }}
+    {{ $motif = "text-diffusion" }}
+  {{ else if or (in $tags "normalization") (in $categories "normalization") }}
+    {{ $motif = "normalization" }}
+  {{ else if in $tags "diffusion" }}
+    {{ $motif = "diffusion" }}
+  {{ else if or (in $categories "meta") (in $tags "org-mode") (in $tags "setup") }}
+    {{ $motif = "notebook" }}
+  {{ else }}
+    {{ $motif = "generic" }}
+  {{ end }}
+{{ end }}
+
+<a
+  class="sf-note__image sf-note__image--fallback sf-plate sf-plate--{{ $motif }}"
+  href="{{ $page.RelPermalink }}"
+  tabindex="-1"
+  aria-hidden="true">
+  <span class="sf-plate__label">FIG. {{ printf "%02d" (add $index 1) }}</span>
+  <span class="sf-plate__topic">{{ replace $motif "-" " " }}</span>
+
+  {{ if eq $motif "text-diffusion" }}
+    <span class="sf-plate__equation">p<sub>θ</sub>(x<sub>t−1</sub> | x<sub>t</sub>)</span>
+    <span class="sf-token-flow">
+      <span class="sf-token-step"><i>?</i><i>▧</i><i>?</i><i>▨</i></span><b>→</b>
+      <span class="sf-token-step"><i>the</i><i>▧</i><i>?</i><i>sat</i></span><b>→</b>
+      <span class="sf-token-step"><i>the</i><i>cat</i><i>sat</i><i>…</i></span>
+    </span>
+    <span class="sf-plate__axis">masked tokens&nbsp;&nbsp;→&nbsp;&nbsp;sequence</span>
+  {{ else if eq $motif "normalization" }}
+    <svg class="sf-plate__drawing" viewBox="0 0 300 120" role="presentation" focusable="false">
+      <path class="sf-plate__grid" d="M20 10V105H290M20 35H290M20 70H290" />
+      <path class="sf-plate__blue" d="M20 93C55 75 72 30 112 49S162 89 196 57 250 20 290 31" />
+      <path class="sf-plate__orange" d="M20 82C56 67 82 52 112 58S167 72 203 51 255 43 290 46" />
+    </svg>
+    <span class="sf-plate__axis">activation distribution / layer</span>
+  {{ else if eq $motif "diffusion" }}
+    <span class="sf-diffusion-flow"><i></i><b>→</b><i></i><b>→</b><i></i><b>→</b><i></i></span>
+    <span class="sf-plate__equation">dx = f(x,t)dt + g(t)dW</span>
+    <span class="sf-plate__axis">noise&nbsp;&nbsp;→&nbsp;&nbsp;sample</span>
+  {{ else if eq $motif "notebook" }}
+    <span class="sf-code-lines"><i></i><i></i><i></i><i></i><i></i></span>
+    <span class="sf-plate__equation">#+title: field note</span>
+    <span class="sf-plate__axis">source / build / publish</span>
+  {{ else }}
+    <svg class="sf-plate__drawing" viewBox="0 0 300 120" role="presentation" focusable="false">
+      <path class="sf-plate__grid" d="M20 10V105H290M20 35H290M20 70H290" />
+      <circle class="sf-plate__node" cx="70" cy="65" r="9"/><circle class="sf-plate__node" cx="145" cy="35" r="7"/><circle class="sf-plate__node" cx="215" cy="74" r="11"/><circle class="sf-plate__node" cx="264" cy="30" r="6"/>
+      <path class="sf-plate__blue" d="M79 61L138 38M151 40L207 69M224 67L258 34" />
+    </svg>
+    <span class="sf-plate__axis">observation / experiment / note</span>
+  {{ end }}
+</a>

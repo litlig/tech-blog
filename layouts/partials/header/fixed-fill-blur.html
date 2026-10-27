@@ -1,0 +1,40 @@
+<header class="sf-masthead" id="sf-masthead">
+  <a class="sf-wordmark" href="{{ `/` | relLangURL }}" aria-label="StrayForge home">Stray<span>Forge</span></a>
+  <nav class="sf-masthead__nav" aria-label="Primary navigation">
+    <a href="{{ `/posts/` | relLangURL }}">Posts</a>
+    <a href="{{ `/tags/` | relLangURL }}">Topics</a>
+    <a href="{{ `/about/` | relLangURL }}">About</a>
+  </nav>
+  <div class="sf-masthead__tools">
+    <button id="search-button" class="sf-search-trigger" type="button" aria-label="Search notes">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>
+      <span>Search notes…</span>
+    </button>
+    <span class="sf-masthead__rule" aria-hidden="true"></span>
+    <button class="sf-theme-choice" type="button" data-sf-theme="light" aria-label="Use light mode" title="Light mode">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.55 1.55M17.15 17.15l1.55 1.55M5.3 18.7l1.55-1.55M17.15 6.85l1.55-1.55"/></svg>
+    </button>
+    <button class="sf-theme-choice" type="button" data-sf-theme="dark" aria-label="Use dark mode" title="Dark mode">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.6A8.5 8.5 0 0 1 9.4 4a8.5 8.5 0 1 0 10.6 10.6Z"/></svg>
+    </button>
+  </div>
+  <div class="sf-masthead__mobile">{{ partial "header/components/mobile-menu.html" . }}</div>
+</header>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    var masthead = document.getElementById("sf-masthead");
+    var onScroll = function () { masthead.classList.toggle("is-scrolled", window.scrollY > 8); };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    document.querySelectorAll("[data-sf-theme]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var dark = button.dataset.sfTheme === "dark";
+        document.documentElement.classList.toggle("dark", dark);
+        localStorage.setItem("appearance", dark ? "dark" : "light");
+        if (typeof updateMeta === "function") updateMeta();
+        if (typeof updateMermaidTheme === "function") updateMermaidTheme();
+      });
+    });
+  });
+</script>

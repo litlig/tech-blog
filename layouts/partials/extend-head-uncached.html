@@ -1,0 +1,7 @@
+{{/* The homepage hero typesets its margin equations at build time (transform.ToMath), so it only needs KaTeX's stylesheet and fonts. */}}
+{{ if .IsHome }}
+  {{ range resources.Match "lib/katex/fonts/*.woff2" }}{{ $_ := .Publish }}{{ end }}
+  {{ with resources.Get "lib/katex/katex.min.css" }}
+    <link rel="stylesheet" href="{{ .RelPermalink }}">
+  {{ end }}
+{{ end }}

@@ -16,20 +16,14 @@
   weight = 10
 
 [[main]]
-  name = "Categories"
-  pageRef = "categories"
+  name = "Topics"
+  pageRef = "tags"
   weight = 20
 
 [[main]]
-  name = "Tags"
-  pageRef = "tags"
+  name = "About"
+  pageRef = "about"
   weight = 30
-
-[[main]]
-  name = "RSS"
-  url = "/index.xml"
-  weight = 40
-  pre = "rss"
 
 #[[main]]
 #  name = "example sub-menu 1"
